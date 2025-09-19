@@ -9,7 +9,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {/* ▼▼▼ GameProviderで全体を囲む ▼▼▼ */}
     <GameProvider>
-      <BrowserRouter>
+        <BrowserRouter basename="/wiki-quiz">
         <App />
       </BrowserRouter>
     </GameProvider>
