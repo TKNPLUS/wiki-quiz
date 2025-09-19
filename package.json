@@ -2,14 +2,14 @@
   "name": "wiki-quiz",
   "private": true,
   "version": "0.0.0",
-   "homepage": "https://tknplus.github.io/wiki-quiz",
+  "homepage": "https://tknplus.github.io/wiki-quiz",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "lint": "eslint .",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
