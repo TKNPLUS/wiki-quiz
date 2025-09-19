@@ -3,16 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useGameSettings } from './GameContext';
 import './App.css';
 
+
 function PreparationScreen() {
   const { mode } = useParams();
   const navigate = useNavigate();
-  const { setSettings, gameModes } = useGameSettings();
-  
+  const { setModeSettings, gameModes } = useGameSettings();
+
   const selectedMode = gameModes[mode] || { name: '不明', description: '', path: null, settings: {} };
-  
+
   const [localSettings, setLocalSettings] = useState(selectedMode.settings);
 
-  // URLのモードが変わったら、表示する設定も更新する
   useEffect(() => {
     setLocalSettings(gameModes[mode]?.settings || {});
   }, [mode, gameModes]);
@@ -23,7 +23,7 @@ function PreparationScreen() {
   };
   
   const handleGameStart = () => {
-    setSettings(localSettings); // グローバルな設定を更新
+    setModeSettings(localSettings);
     navigate(selectedMode.path);
   };
 
@@ -33,34 +33,36 @@ function PreparationScreen() {
       <p className="mode-description">{selectedMode.description}</p>
       <div className="options-container">
         <h2>オプション</h2>
+        {/* ▼▼▼ ここから下が修正箇所です ▼▼▼ */}
         <div className="option-item">
           <label htmlFor="questionCount">問題数</label>
           <input id="questionCount" name="questionCount" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
         </div>
         <div className="option-item">
           <label htmlFor="baseScore">基礎スコア</label>
-          <input id="baseScore" name="baseScore" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+          <input id="baseScore" name="baseScore" type="number" value={localSettings.baseScore} onChange={handleSettingChange} />
         </div>
         <div className="option-item">
-          <label htmlFor="maxTime">タイム</label>
-          <input id="maxTime" name="maxTime" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+          <label htmlFor="maxTime">最大時間 (秒)</label>
+          <input id="maxTime" name="maxTime" type="number" value={localSettings.maxTime} onChange={handleSettingChange} />
         </div>
         <div className="option-item">
           <label htmlFor="incorrectCost">不正解ペナルティ</label>
-          <input id="incorrectCost" name="incorrectCost" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+          <input id="incorrectCost" name="incorrectCost" type="number" value={localSettings.incorrectCost} onChange={handleSettingChange} />
         </div>
         <div className="option-item">
           <label htmlFor="hintCost">ヒントコスト</label>
-          <input id="hintCost" name="hintCost" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+          <input id="hintCost" name="hintCost" type="number" value={localSettings.hintCost} onChange={handleSettingChange} />
         </div>
         <div className="option-item">
-          <label htmlFor="unmaskHintCost">アンマスクコスト</label>
-          <input id="unmaskHintCost" name="unmaskHintCost" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+          <label htmlFor="unmaskHintCost">伏せ字削減コスト</label>
+          <input id="unmaskHintCost" name="unmaskHintCost" type="number" value={localSettings.unmaskHintCost} onChange={handleSettingChange} />
         </div>
         <div className="option-item">
           <label htmlFor="rerollCostBase">リロールコスト</label>
-          <input id="rerollCostBase" name="rerollCostBase" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+          <input id="rerollCostBase" name="rerollCostBase" type="number" value={localSettings.rerollCostBase} onChange={handleSettingChange} />
         </div>
+        {/* ▲▲▲ ここまでが修正箇所です ▲▲▲ */}
         <button className="menu-button" onClick={() => setLocalSettings(selectedMode.settings)}>デフォルトに戻す</button>
       </div>
       <div className="preparation-buttons">

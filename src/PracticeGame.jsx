@@ -15,32 +15,73 @@ function PracticeGame() {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [visibleChars, setVisibleChars] = useState(200);
 
-  const fetchRandomArticle = async () => {
-    setGuess('');
-    setResultMessage('');
-    setArticle(null);
-    setVisibleChars(200);
-    setIsAnswered(false);
-    setUnmaskableWords([]);
-    setRevealedWords([]);
-    const url = "https://ja.wikipedia.org/w/api.php?action=query&format=json&list=random&rnnamespace=0&rnlimit=1&origin=*";
+ // ▼▼▼ 既存の fetchRandomArticle 関数をこれに置き換える ▼▼▼
+const fetchRandomArticle = async (newScore = modeSettings.baseScore, newMaxTime = modeSettings.maxTime) => {
+  setGuess('');
+  setResultMessage('条件に合う記事を探しています...'); // メッセージを分かりやすく変更
+  setArticle(null);
+  setIsAnswered(false);
+  setCurrentQuestionScore(newScore);
+  
+  // 各モードに存在するStateのみ更新を試みる
+  if (typeof setMaxTime === 'function') setMaxTime(newMaxTime);
+  if (typeof setTimeLeft === 'function') setTimeLeft(newMaxTime);
+  if (typeof setVisibleChars === 'function') setVisibleChars(200);
+
+  setHintUsed(false);
+  setUnmaskableWords([]);
+  setRevealedWords([]);
+  
+  const url = "https://ja.wikipedia.org/w/api.php";
+  const commonParams = "&format=json&origin=*";
+  const MAX_ATTEMPTS = 10;
+
+  const properNounKeywords = ["人名", "俳優", "タレント", "ミュージシャン", "モデル", "声優", "アナウンサー", "スポーツ選手", "政治家", "歴史上の人物", "架空の人物", "地理", "都市", "国", "駅", "企業", "大学", "シングル", "アルバム", "テレビドラマ", "映画作品", "漫画作品", "アニメ作品", "ゲーム作品"];
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
     try {
-      const response = await fetch(url);
-      const data = await response.json();
-      const randomTitle = data.query.random[0].title;
-      const extractUrl = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&titles=${encodeURIComponent(randomTitle)}&origin=*`;
-      const extractResponse = await fetch(extractUrl);
-      const extractData = await extractResponse.json();
-      const page = Object.values(extractData.query.pages)[0];
+      const randomParams = `?action=query&list=random&rnnamespace=0&rnlimit=1${commonParams}`;
+      const randomResponse = await fetch(url + randomParams);
+      const randomData = await randomResponse.json();
+      const randomTitle = randomData.query.random[0].title;
+
+      const detailsParams = `?action=query&prop=extracts|categories|pageviews&titles=${encodeURIComponent(randomTitle)}${commonParams}`;
+      const detailsResponse = await fetch(url + detailsParams);
+      const detailsData = await detailsResponse.json();
+      const page = Object.values(detailsData.query.pages)[0];
+      
+      if (globalSettings.excludeProperNouns) {
+        const categories = page.categories?.map(cat => cat.title) || [];
+        const isProperNoun = categories.some(cat => properNounKeywords.some(key => cat.includes(key)));
+        if (isProperNoun) {
+          console.log(`フィルタ: 固有名詞記事「${page.title}」をスキップ`);
+          continue;
+        }
+      }
+
+      const pageviews = page.pageviews ? Object.values(page.pageviews).reduce((a, b) => a + b, 0) : 0;
+      if (pageviews < globalSettings.minPageviews) {
+        console.log(`フィルタ: 低閲覧数記事「${page.title}」（${pageviews} views）をスキップ`);
+        continue;
+      }
+
       setArticle({ title: page.title, extract: page.extract });
       const { maskedText, unmaskableWords } = maskText(page.extract, page.title);
       setMaskedExtract(maskedText);
       setUnmaskableWords(unmaskableWords);
+      setHistory(prevHistory => [...prevHistory, { title: page.title, extract: page.extract }]);
+      setResultMessage('');
+      return;
+
     } catch (error) {
       console.error("APIリクエスト中にエラー:", error);
-      setMaskedExtract("記事の取得に失敗しました。");
+      continue;
     }
-  };
+  }
+
+  setResultMessage("条件に合う記事が見つかりませんでした。設定を緩めてみてください。");
+};
+// ▲▲▲ ここまで置き換え ▲▲▲
 
   useEffect(() => {
     fetchRandomArticle();

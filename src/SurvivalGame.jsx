@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameSettings } from './GameContext';
-import { normalizeText, maskText } from './utils';
+import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
 import ArticleModal from './ArticleModal';
 
 function SurvivalGame() {
@@ -15,12 +15,12 @@ function SurvivalGame() {
   const [guess, setGuess] = useState('');
   const [resultMessage, setResultMessage] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
-  const [currentQuestionScore, setCurrentQuestionScore] = useState(settings.baseScore);
+  const [currentQuestionScore, setCurrentQuestionScore] = useState(modeSettings.baseScore);
   const [isGameActive, setIsGameActive] = useState(true);
   const [questionsCleared, setQuestionsCleared] = useState(0);
 
   // Survival State
-  const [timeLeft, setTimeLeft] = useState(settings.maxTime);
+  const [timeLeft, setTimeLeft] = useState(modeSettings.maxTime);
   const timerRef = useRef(null);
 
   // Hint and Reroll State
@@ -52,41 +52,34 @@ function SurvivalGame() {
   }, [isGameActive]);
 
   // --- Article Fetching ---
-  const fetchRandomArticle = async (newScore = settings.baseScore) => {
-    setGuess('');
-    setResultMessage('');
-    setArticle(null);
-    setIsAnswered(false);
-    setCurrentQuestionScore(newScore);
-    setRerolls(0);
-    setHintUsed(false);
-    setUnmaskableWords([]);
-    setRevealedWords([]);
-    setVisibleChars(200);
-    
-    const url = "https://ja.wikipedia.org/w/api.php";
-    const commonParams = "&format=json&origin=*";
-    try {
-      const randomParams = `?action=query&list=random&rnnamespace=0&rnlimit=1${commonParams}`;
-      const randomResponse = await fetch(url + randomParams);
-      const randomData = await randomResponse.json();
-      const randomTitle = randomData.query.random[0].title;
-      const extractParams = `?action=query&prop=extracts&titles=${encodeURIComponent(randomTitle)}${commonParams}`;
-      const extractResponse = await fetch(url + extractParams);
-      const extractData = await extractResponse.json();
-      const page = Object.values(extractData.query.pages)[0];
-      setArticle({ title: page.title, extract: page.extract });
-      const { maskedText, unmaskableWords } = maskText(page.extract, page.title);
-      setMaskedExtract(maskedText);
-      setUnmaskableWords(unmaskableWords);
-      setHistory(prevHistory => [...prevHistory, { title: page.title, extract: page.extract }]);
-    } catch (error) {
-      console.error("APIリクエスト中にエラー:", error);
-      setResultMessage("記事の取得に失敗しました。");
-    }
-  };
+// ▼▼▼ 新しい fetchAndSetArticle 関数を追加 ▼▼▼
+const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime = modeSettings.maxTime) => {
+  setGuess('');
+  setResultMessage('記事を探しています...');
+  setArticle(null);
+  setIsAnswered(false);
+  setCurrentQuestionScore(newScore);
+  if (typeof setMaxTime === 'function') setMaxTime(newMaxTime);
+  if (typeof setTimeLeft === 'function') setTimeLeft(newMaxTime);
+  if (typeof setVisibleChars === 'function') setVisibleChars(200);
+  setHintUsed(false);
+  setUnmaskableWords([]);
+  setRevealedWords([]);
 
-  useEffect(() => { fetchRandomArticle(); }, []);
+  const articleData = await fetchRandomArticleFromUtils(globalSettings);
+  if (articleData) {
+    setArticle(articleData.article);
+    setMaskedExtract(articleData.maskedText);
+    setUnmaskableWords(articleData.unmaskableWords);
+    setHistory(prevHistory => [...prevHistory, articleData.article]);
+    setResultMessage('');
+  } else {
+    setResultMessage("記事の取得に失敗しました。リロードしてみてください。");
+  }
+};
+// ▲▲▲ ここまで置き換え ▲▲▲
+
+  useEffect(() => { fetchAndSetArticle(); }, []);
 
   // --- Game Logic ---
   const applyCost = (cost) => {
@@ -97,7 +90,7 @@ function SurvivalGame() {
       setIsAnswered(true); // 操作をロック
       setResultMessage(`ライフ切れ！正解は「${article.title}」。${Math.abs(newScore)}秒のペナルティ！`);
       setTimeLeft(prev => Math.max(0, prev + newScore));
-      setTimeout(() => fetchRandomArticle(), 1500); // 1.5秒後に次の問題へ
+  setTimeout(() => fetchAndSetArticle(), 1500); // 1.5秒後に次の問題へ
     }
   };
 
@@ -106,20 +99,42 @@ function SurvivalGame() {
     const isCorrect = normalizeText(guess.toLowerCase()) === normalizeText(article.title.toLowerCase()) || normalizeText(guess.toLowerCase()) === normalizeText(article.title.split('(')[0].trim().toLowerCase());
 
     if (isCorrect) {
-      setAnimationClass('correct-answer'); // ★正解クラス
+      const timeBonus = Math.max(0, Math.floor(timeLeft / 3));
       let bonusScore = 0;
-      if (!hintUsed) bonusScore += settings.noHintBonus;
-      if (rerolls === 0) bonusScore += settings.noRerollBonus;
-      const timeToAdd = Math.max(0, currentQuestionScore) + bonusScore;
-      setTimeLeft(prev => Math.min(settings.timeCap, prev + timeToAdd));
-      setQuestionsCleared(prev => prev + 1);
-      setResultMessage(`正解！「${article.title}」 ${timeToAdd}秒獲得！`);
+      const bonusMessages = [];
+
+      if (!hintUsed) {
+        bonusScore += modeSettings.noHintBonus;
+        bonusMessages.push(`ノーヒント ${modeSettings.noHintBonus}点`);
+      }
+      if (rerolls === 0) {
+        bonusScore += modeSettings.noRerollBonus;
+        bonusMessages.push(`ノーリロール ${modeSettings.noRerollBonus}点`);
+      }
+
+      const newConsecutiveWins = questionsCleared + 1;
+      // SurvivalGameでは連続正解ボーナスをquestionsClearedで代用
+      if (newConsecutiveWins > 1) {
+        const comboBonus = newConsecutiveWins * modeSettings.comboBonusMultiplier;
+        bonusScore += comboBonus;
+        bonusMessages.push(`連続正解 ${comboBonus}点`);
+      }
+
+      const totalPoints = currentQuestionScore + timeBonus + bonusScore;
+      setTimeLeft(prev => Math.min(modeSettings.timeCap, prev + totalPoints));
+      setQuestionsCleared(newConsecutiveWins);
+      let resultMsg = `正解！ ${currentQuestionScore}点 + タイムボーナス ${timeBonus}点`;
+      if (bonusMessages.length > 0) {
+        resultMsg += ` + ${bonusMessages.join(' + ')}`;
+      }
+      resultMsg += ` 獲得！`;
+      setResultMessage(resultMsg);
       setIsAnswered(true);
-      setTimeout(fetchRandomArticle, 800);
+      setTimeout(fetchAndSetArticle, 800);
     } else {
       setAnimationClass('incorrect-answer'); // ★不正解クラス
-      setResultMessage(`不正解... -${settings.incorrectCost}ライフ`);
-      applyCost(settings.incorrectCost);
+      setResultMessage(`不正解... -${modeSettings.incorrectCost}ライフ`);
+      applyCost(modeSettings.incorrectCost);
     }
     setTimeout(() => setAnimationClass(''), 500); // ★0.5秒後リセット
   };
@@ -128,7 +143,7 @@ function SurvivalGame() {
     if (isAnswered) return;
     setHintUsed(true);
     setVisibleChars(prev => prev + 150);
-    applyCost(settings.hintCost);
+    applyCost(modeSettings.hintCost);
   };
   
   const handleUnmaskHint = () => {
@@ -138,14 +153,14 @@ function SurvivalGame() {
     const wordToReveal = unmaskableWords[randomIndex];
     setRevealedWords([...revealedWords, wordToReveal]);
     setUnmaskableWords(unmaskableWords.filter((_, index) => index !== randomIndex));
-    applyCost(settings.unmaskHintCost);
+    applyCost(modeSettings.unmaskHintCost);
   };
 
   const handleReroll = () => {
-    const cost = settings.rerollCostBase * (rerolls + 1);
+    const cost = modeSettings.rerollCostBase * (rerolls + 1);
     const remainingScore = currentQuestionScore - cost;
     setRerolls(rerolls + 1);
-    fetchRandomArticle(remainingScore); // ★修正：残ったライフを引き継いでリロール
+  fetchAndSetArticle(remainingScore); // ★修正：残ったライフを引き継いでリロール
     applyCost(cost);
   };
   const handleKeyPress = (e) => { if (e.key === 'Enter') handleGuess(); };
@@ -197,13 +212,13 @@ function SurvivalGame() {
           )}
           <div className="button-area">
             <button className="reroll-button" onClick={handleReroll} disabled={isAnswered}>
-              リロール (-{settings.rerollCostBase * (rerolls + 1)}点)
+              リロール (-{modeSettings.rerollCostBase * (rerolls + 1)}点)
             </button>
             <button className="hint-unmask-button" onClick={handleUnmaskHint} disabled={isAnswered || unmaskableWords.length === 0}>
-              伏せ字削減 (-{settings.unmaskHintCost}点)
+              伏せ字削減 (-{modeSettings.unmaskHintCost}点)
             </button>
             <button className="hint-button" onClick={handleRevealHint} disabled={isAnswered || visibleChars >= maskedExtract.length}>
-              ヒント (-{settings.hintCost}点)
+              ヒント (-{modeSettings.hintCost}点)
             </button>
           </div>
           <div className="guess-area">

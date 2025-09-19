@@ -3,16 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import ArticleModal from './ArticleModal';
 import './App.css';
 import { useGameSettings } from './GameContext.jsx';
-import { normalizeText, maskText } from './utils';
+import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
 // 定数（ゲームバランスの調整用）
 const INITIAL_CHARS = 200;
 const HINT_CHARS = 150;
 // ゲームバランス用定数（Contextで管理しないもののみ）
-// HINT_COST, INCORRECT_COST, REROLL_COST_BASE, NO_HINT_BONUS, NO_REROLL_BONUS, COMBO_BONUS_MULTIPLIER, UNMASK_HINT_COST は settings から参照
+// HINT_COST, INCORRECT_COST, REROLL_COST_BASE, NO_HINT_BONUS, NO_REROLL_BONUS, COMBO_BONUS_MULTIPLIER, UNMASK_HINT_COST は modeSettings から参照
 
 function NormalGame() {
   const { modeSettings, globalSettings } = useGameSettings();
-    const [animationClass, setAnimationClass] = useState('');
+  const [animationClass, setAnimationClass] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const [article, setArticle] = useState(null);
@@ -21,12 +21,12 @@ function NormalGame() {
   const [resultMessage, setResultMessage] = useState('');
   const [score, setScore] = useState(0);
   const [questionNumber, setQuestionNumber] = useState(1);
-  const [currentQuestionScore, setCurrentQuestionScore] = useState(settings.baseScore);
+  const [currentQuestionScore, setCurrentQuestionScore] = useState(modeSettings.baseScore);
   const [isGameActive, setIsGameActive] = useState(true);
   const [isAnswered, setIsAnswered] = useState(false);
   const [visibleChars, setVisibleChars] = useState(INITIAL_CHARS);
-  const [timeLeft, setTimeLeft] = useState(settings.maxTime);
-  const [maxTime, setMaxTime] = useState(settings.maxTime);
+  const [timeLeft, setTimeLeft] = useState(modeSettings.maxTime);
+  const [maxTime, setMaxTime] = useState(modeSettings.maxTime);
   const [hintUsed, setHintUsed] = useState(false);
   const [rerolls, setRerolls] = useState(0);
   const [consecutiveWins, setConsecutiveWins] = useState(0);
@@ -68,39 +68,32 @@ function NormalGame() {
     return () => clearInterval(timer);
   }, [isGameActive, isAnswered, article, currentQuestionScore]);
 
-  const fetchRandomArticle = async (scoreAfterReroll = settings.baseScore, newMaxTime = settings.maxTime) => {
-    setGuess('');
+// ▼▼▼ 新しい fetchAndSetArticle 関数を追加 ▼▼▼
+const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime = modeSettings.maxTime) => {
+  setGuess('');
+  setResultMessage('記事を探しています...');
+  setArticle(null);
+  setIsAnswered(false);
+  setCurrentQuestionScore(newScore);
+  if (typeof setMaxTime === 'function') setMaxTime(newMaxTime);
+  if (typeof setTimeLeft === 'function') setTimeLeft(newMaxTime);
+  if (typeof setVisibleChars === 'function') setVisibleChars(200);
+  setHintUsed(false);
+  setUnmaskableWords([]);
+  setRevealedWords([]);
+
+  const articleData = await fetchRandomArticleFromUtils(globalSettings);
+  if (articleData) {
+    setArticle(articleData.article);
+    setMaskedExtract(articleData.maskedText);
+    setUnmaskableWords(articleData.unmaskableWords);
+    setHistory(prevHistory => [...prevHistory, articleData.article]);
     setResultMessage('');
-    setArticle(null);
-    setIsAnswered(false);
-  setCurrentQuestionScore(scoreAfterReroll);
-    setVisibleChars(INITIAL_CHARS);
-  setMaxTime(newMaxTime);
-  setTimeLeft(newMaxTime);
-    setHintUsed(false);
-    setUnmaskableWords([]);
-    setRevealedWords([]);
-    const url = "https://ja.wikipedia.org/w/api.php";
-    const commonParams = "&format=json&origin=*";
-    try {
-      const randomParams = `?action=query&list=random&rnnamespace=0&rnlimit=1${commonParams}`;
-      const randomResponse = await fetch(url + randomParams);
-      const randomData = await randomResponse.json();
-      const randomTitle = randomData.query.random[0].title;
-      const extractParams = `?action=query&prop=extracts&titles=${encodeURIComponent(randomTitle)}${commonParams}`;
-      const extractResponse = await fetch(url + extractParams);
-      const extractData = await extractResponse.json();
-      const page = Object.values(extractData.query.pages)[0];
-      setArticle({ title: page.title, extract: page.extract });
-      const { maskedText, unmaskableWords } = maskText(page.extract, page.title);
-      setMaskedExtract(maskedText);
-      setUnmaskableWords(unmaskableWords);
-      setHistory(prevHistory => [...prevHistory, { title: page.title, extract: page.extract }]);
-    } catch (error) {
-      console.error("APIリクエスト中にエラー:", error);
-      setMaskedExtract("記事の取得に失敗しました。ネットワーク接続を確認してください。");
-    }
-  };
+  } else {
+    setResultMessage("記事の取得に失敗しました。リロードしてみてください。");
+  }
+};
+// ▲▲▲ ここまで置き換え ▲▲▲
 
   useEffect(() => { startNewGame(); }, []);
 
@@ -111,7 +104,7 @@ function NormalGame() {
     setRerolls(0);
     setHistory([]);
     setIsGameActive(true);
-    fetchRandomArticle(settings.baseScore, settings.maxTime);
+  fetchAndSetArticle(modeSettings.baseScore, modeSettings.maxTime);
   };
 
   const handleGuess = () => {
@@ -122,33 +115,39 @@ function NormalGame() {
     const normalizedMainTitle = normalizeText(mainTitle.toLowerCase());
     const isCorrect = (normalizedGuess === normalizedTitle || normalizedGuess === normalizedMainTitle);
     if (isCorrect) {
-      // --- 正解の処理 ---
-      setAnimationClass('correct-answer'); // ★正解クラスをセット
       const timeBonus = Math.max(0, Math.floor(timeLeft / 3));
       let bonusScore = 0;
       const bonusMessages = [];
+
+      // ★修正: 古い定数名から modeSettings を使うように変更
       if (!hintUsed) {
-        bonusScore += settings.noHintBonus;
-        bonusMessages.push(`ノーヒント ${settings.noHintBonus}点`);
+        bonusScore += modeSettings.noHintBonus;
+        bonusMessages.push(`ノーヒント ${modeSettings.noHintBonus}点`);
       }
       if (rerolls === 0) {
-        bonusScore += settings.noRerollBonus;
-        bonusMessages.push(`ノーリロール ${settings.noRerollBonus}点`);
+        bonusScore += modeSettings.noRerollBonus;
+        bonusMessages.push(`ノーリロール ${modeSettings.noRerollBonus}点`);
       }
+
       const newConsecutiveWins = consecutiveWins + 1;
       setConsecutiveWins(newConsecutiveWins);
+
+      // ★修正: 古い定数名から modeSettings を使うように変更
       if (newConsecutiveWins > 1) {
-        const comboBonus = newConsecutiveWins * settings.comboBonusMultiplier;
+        const comboBonus = newConsecutiveWins * modeSettings.comboBonusMultiplier;
         bonusScore += comboBonus;
         bonusMessages.push(`連続正解 ${comboBonus}点`);
       }
+
       const totalPoints = currentQuestionScore + timeBonus + bonusScore;
       setScore(score + totalPoints);
+
       let resultMsg = `正解！ ${currentQuestionScore}点 + タイムボーナス ${timeBonus}点`;
       if (bonusMessages.length > 0) {
         resultMsg += ` + ${bonusMessages.join(' + ')}`;
       }
       resultMsg += " 獲得！";
+      
       setResultMessage(resultMsg);
       setMaskedExtract(article.extract.replace(/<[^>]+>/g, ''));
       setIsAnswered(true);
@@ -156,14 +155,14 @@ function NormalGame() {
       // --- 不正解の処理 ---
       setAnimationClass('incorrect-answer'); // ★不正解クラスをセット
       setConsecutiveWins(0);
-      const newCurrentScore = Math.max(0, currentQuestionScore - settings.incorrectCost);
+      const newCurrentScore = Math.max(0, currentQuestionScore - modeSettings.incorrectCost);
       setCurrentQuestionScore(newCurrentScore);
       if (newCurrentScore === 0) {
         setResultMessage(`基礎スコアが0になりました。正解は「${article.title}」でした。`);
         setMaskedExtract(article.extract.replace(/<[^>]+>/g, ''));
         setIsAnswered(true);
       } else {
-        setResultMessage(`不正解！ -${settings.incorrectCost}点 (残り${newCurrentScore}点)`);
+  setResultMessage(`不正解！ -${modeSettings.incorrectCost}点 (残り${newCurrentScore}点)`);
       }
     }
     // ★アニメーション終了後にクラス名をリセットする
@@ -173,7 +172,7 @@ function NormalGame() {
   const handleHint = () => {
     setHintUsed(true);
     if (isAnswered || visibleChars >= maskedExtract.length) return;
-  const newCurrentScore = Math.max(0, currentQuestionScore - settings.hintCost);
+  const newCurrentScore = Math.max(0, currentQuestionScore - modeSettings.hintCost);
     setCurrentQuestionScore(newCurrentScore);
     setVisibleChars(visibleChars + HINT_CHARS);
     if (newCurrentScore === 0) {
@@ -185,7 +184,7 @@ function NormalGame() {
   
   const handleUnmaskHint = () => {
     if (isAnswered || unmaskableWords.length === 0) return;
-  const cost = settings.unmaskHintCost;
+  const cost = modeSettings.unmaskHintCost;
     if (currentQuestionScore > cost) {
       setHintUsed(true);
       setCurrentQuestionScore(currentQuestionScore - cost);
@@ -201,24 +200,24 @@ function NormalGame() {
 
   const handleReroll = () => {
     if (isAnswered) return;
-  const cost = settings.rerollCostBase * (rerolls + 1);
+  const cost = modeSettings.rerollCostBase * (rerolls + 1);
     if (currentQuestionScore > cost) {
       const remainingScore = currentQuestionScore - cost;
       const newMaxTime = Math.max(20, maxTime - 20);
       setRerolls(rerolls + 1);
-      fetchRandomArticle(remainingScore, newMaxTime);
+  fetchAndSetArticle(remainingScore, newMaxTime);
     } else {
       setResultMessage("この問題のスコアが足りず、リロールできません！");
     }
   };
 
   const handleNextQuestion = () => {
-  if (questionNumber >= settings.questionCount) {
+  if (questionNumber >= modeSettings.questionCount) {
       setIsGameActive(false);
     } else {
       setQuestionNumber(questionNumber + 1);
   setRerolls(0);
-  fetchRandomArticle(settings.baseScore, settings.maxTime);
+  fetchAndSetArticle(modeSettings.baseScore, modeSettings.maxTime);
     }
   };
 
@@ -264,7 +263,7 @@ function NormalGame() {
                 : `次のペナルティまで: ${30 - (Math.abs(timeLeft) % 30)}秒`
               }
             </span>
-            <span>第 {questionNumber} / {settings.questionCount} 問</span>
+            <span>第 {questionNumber} / {modeSettings.questionCount} 問</span>
           </div>
           <h1>Wikipedia記事当てクイズ</h1>
           {!article ? (<p>読み込み中...</p>) : (
@@ -288,21 +287,21 @@ function NormalGame() {
                   onClick={handleReroll}
                   disabled={isAnswered}
                 >
-                  リロール (-{settings.rerollCostBase * (rerolls + 1)}点)
+                  リロール (-{modeSettings.rerollCostBase * (rerolls + 1)}点)
                 </button>
                 <button
                   className="hint-unmask-button"
                   onClick={handleUnmaskHint}
                   disabled={isAnswered || unmaskableWords.length === 0}
                 >
-                  伏せ字削減 (-{settings.unmaskHintCost}点)
+                  伏せ字削減 (-{modeSettings.unmaskHintCost}点)
                 </button>
                 <button
                   className="hint-button"
                   onClick={handleHint}
                   disabled={isAnswered || visibleChars >= maskedExtract.length}
                 >
-                  ヒント (-{settings.hintCost}点)
+                  ヒント (-{modeSettings.hintCost}点)
                 </button>
               </div>
               <div className="guess-area">

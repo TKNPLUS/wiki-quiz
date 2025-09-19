@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameSettings } from './GameContext';
-import { normalizeText, maskText } from './utils';
+import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
 import ArticleModal from './ArticleModal';
 
 function TimeAttackGame() {
@@ -15,7 +15,7 @@ function TimeAttackGame() {
   const [guess, setGuess] = useState('');
   const [resultMessage, setResultMessage] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
-  const [currentQuestionScore, setCurrentQuestionScore] = useState(settings.baseScore);
+  const [currentQuestionScore, setCurrentQuestionScore] = useState(modeSettings.baseScore);
   const [isGameActive, setIsGameActive] = useState(true);
   const [correctAnswers, setCorrectAnswers] = useState(0); // ★「問題番号」から「正解数」に変更
 
@@ -45,42 +45,36 @@ function TimeAttackGame() {
     return () => clearInterval(timerRef.current);
   }, [isGameActive, isFrozen]);
 
-  // --- Article Fetching ---
-  const fetchRandomArticle = async (newScore = settings.baseScore) => { // ★修正：スコアを引き継げるように
-    setGuess('');
+  // --- Article Fetching --
+// ▼▼▼ 新しい fetchAndSetArticle 関数を追加 ▼▼▼
+const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime = modeSettings.maxTime) => {
+  setGuess('');
+  setResultMessage('記事を探しています...');
+  setArticle(null);
+  setIsAnswered(false);
+  setCurrentQuestionScore(newScore);
+  if (typeof setMaxTime === 'function') setMaxTime(newMaxTime);
+  if (typeof setTimeLeft === 'function') setTimeLeft(newMaxTime);
+  if (typeof setVisibleChars === 'function') setVisibleChars(200);
+  setHintUsed(false);
+  setUnmaskableWords([]);
+  setRevealedWords([]);
+
+  const articleData = await fetchRandomArticleFromUtils(globalSettings);
+  if (articleData) {
+    setArticle(articleData.article);
+    setMaskedExtract(articleData.maskedText);
+    setUnmaskableWords(articleData.unmaskableWords);
+    setHistory(prevHistory => [...prevHistory, articleData.article]);
     setResultMessage('');
-    setArticle(null);
-    setIsAnswered(false);
-    setCurrentQuestionScore(newScore); // ★修正：引数で受け取ったスコアを設定
-    setUnmaskableWords([]);
-    setRevealedWords([]);
-    
-    const url = "https://ja.wikipedia.org/w/api.php";
-    const commonParams = "&format=json&origin=*";
-    try {
-      const randomParams = `?action=query&list=random&rnnamespace=0&rnlimit=1${commonParams}`;
-      const randomResponse = await fetch(url + randomParams);
-      const randomData = await randomResponse.json();
-      const randomTitle = randomData.query.random[0].title;
-
-      const extractParams = `?action=query&prop=extracts&titles=${encodeURIComponent(randomTitle)}${commonParams}`;
-      const extractResponse = await fetch(url + extractParams);
-      const extractData = await extractResponse.json();
-      const page = Object.values(extractData.query.pages)[0];
-
-      setArticle({ title: page.title, extract: page.extract });
-      const { maskedText, unmaskableWords } = maskText(page.extract, page.title);
-      setMaskedExtract(maskedText);
-      setUnmaskableWords(unmaskableWords);
-      setHistory(prevHistory => [...prevHistory, { title: page.title, extract: page.extract }]);
-    } catch (error) {
-      console.error("APIリクエスト中にエラー:", error);
-      setResultMessage("記事の取得に失敗しました。");
-    }
-  };
+  } else {
+    setResultMessage("記事の取得に失敗しました。リロードしてみてください。");
+  }
+};
+// ▲▲▲ ここまで置き換え ▲▲▲
 
   useEffect(() => { 
-    fetchRandomArticle(); 
+  fetchAndSetArticle(); 
   }, []);
 
   // --- Game Logic ---
@@ -92,7 +86,7 @@ function TimeAttackGame() {
     setTimeout(() => {
       setIsFrozen(false);
       setRerolls(0); // 次の問題に行くのでリロール回数をリセット
-      fetchRandomArticle(); // 新しい問題を取得
+  fetchAndSetArticle(); // 新しい問題を取得
     }, 5000);
   };
 
@@ -111,40 +105,60 @@ function TimeAttackGame() {
     const isCorrect = normalizeText(guess.toLowerCase()) === normalizeText(article.title.toLowerCase()) || normalizeText(guess.toLowerCase()) === normalizeText(article.title.split('(')[0].trim().toLowerCase());
 
     if (isCorrect) {
-      setAnimationClass('correct-answer');
+      const timeBonus = Math.max(0, Math.floor(totalTime / 3));
+      let bonusScore = 0;
+      const bonusMessages = [];
+
+      if (!hintUsed) {
+        bonusScore += modeSettings.noHintBonus;
+        bonusMessages.push(`ノーヒント ${modeSettings.noHintBonus}点`);
+      }
+      if (rerolls === 0) {
+        bonusScore += modeSettings.noRerollBonus;
+        bonusMessages.push(`ノーリロール ${modeSettings.noRerollBonus}点`);
+      }
+
       const newCorrectCount = correctAnswers + 1;
       setCorrectAnswers(newCorrectCount);
-      setResultMessage(`正解！答えは「${article.title}」でした。`);
+
+      if (newCorrectCount > 1) {
+        const comboBonus = newCorrectCount * modeSettings.comboBonusMultiplier;
+        bonusScore += comboBonus;
+        bonusMessages.push(`連続正解 ${comboBonus}点`);
+      }
+
+      const totalPoints = currentQuestionScore + timeBonus + bonusScore;
+      setResultMessage(`正解！ ${currentQuestionScore}点 + タイムボーナス ${timeBonus}点${bonusMessages.length > 0 ? ' + ' + bonusMessages.join(' + ') : ''} 獲得！`);
       setIsAnswered(true);
 
-      if (newCorrectCount >= settings.questionCount) {
-        setIsGameActive(false); // ★5問正解でゲーム終了
+      if (newCorrectCount >= modeSettings.questionCount) {
+        setIsGameActive(false);
       } else {
         setTimeout(() => {
-          setRerolls(0); // 次の問題に行くのでリロール回数をリセット
-          fetchRandomArticle();
+          setRerolls(0);
+          fetchAndSetArticle();
         }, 800);
       }
     } else {
       setAnimationClass('incorrect-answer');
       setResultMessage(`不正解...`);
-      applyCost(settings.incorrectCost);
+      applyCost(modeSettings.incorrectCost);
     }
     setTimeout(() => setAnimationClass(''), 500);
   };
   
   const handleUnmaskHint = () => {
     if (isAnswered || isFrozen || unmaskableWords.length === 0) return;
-    applyCost(settings.unmaskHintCost);
+    applyCost(modeSettings.unmaskHintCost);
   };
 
   const handleReroll = () => {
     if (isAnswered || isFrozen) return;
-    const cost = settings.rerollCostBase * (rerolls + 1);
+    const cost = modeSettings.rerollCostBase * (rerolls + 1);
     if (currentQuestionScore > cost) { // ★修正：コストを支払えるかチェック
         const remainingScore = currentQuestionScore - cost;
         setRerolls(rerolls + 1);
-        fetchRandomArticle(remainingScore); // ★修正：残ったライフを引き継いでリロール
+  fetchAndSetArticle(remainingScore); // ★修正：残ったライフを引き継いでリロール
     } else {
         setResultMessage("ライフが足りず、リロールできません！");
     }
@@ -184,7 +198,7 @@ function TimeAttackGame() {
         <span>ライフ: {currentQuestionScore}</span>
         <span className="timer">経過時間: {totalTime}秒</span>
         {/* ★修正：「問題番号」から「正解数」表示に */}
-        <span>正解数: {correctAnswers} / {settings.questionCount}</span>
+        <span>正解数: {correctAnswers} / {modeSettings.questionCount}</span>
       </div>
       <h1>タイムアタックモード</h1>
       {!article ? (<p>読み込み中...</p>) : (
@@ -198,10 +212,10 @@ function TimeAttackGame() {
           )}
           <div className="button-area">
             <button className="reroll-button" onClick={handleReroll} disabled={isAnswered || isFrozen}>
-              リロール (-{settings.rerollCostBase * (rerolls + 1)}点)
+              リロール (-{modeSettings.rerollCostBase * (rerolls + 1)}点)
             </button>
             <button className="hint-unmask-button" onClick={handleUnmaskHint} disabled={isAnswered || isFrozen || unmaskableWords.length === 0}>
-              伏せ字削減 (-{settings.unmaskHintCost}点)
+              伏せ字削減 (-{modeSettings.unmaskHintCost}点)
             </button>
           </div>
           <div className="guess-area">
