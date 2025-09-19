@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+// ▼▼▼ 以下の正しい1行に置き換える ▼▼▼
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
 
 // モードごとの設定値を定義
 export const gameModes = {
