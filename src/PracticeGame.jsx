@@ -4,6 +4,7 @@ import ArticleModal from './ArticleModal';
 import { normalizeText, maskText } from './utils'; // 後ほど作成する共通ファイルからインポート
 
 function PracticeGame() {
+  const { modeSettings, globalSettings } = useGameSettings();
   const [article, setArticle] = useState(null);
   const [maskedExtract, setMaskedExtract] = useState('');
   const [guess, setGuess] = useState('');

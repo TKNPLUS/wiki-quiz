@@ -16,6 +16,9 @@ function TitleScreen() {
             <Link to="/index" className="menu-button">
                 インデックス
             </Link>
+             <Link to="/settings" className="menu-button">
+                設定
+             </Link>
         </div>
     </div>
   );

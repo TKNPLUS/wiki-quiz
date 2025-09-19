@@ -37,7 +37,30 @@ function PreparationScreen() {
           <label htmlFor="questionCount">問題数</label>
           <input id="questionCount" name="questionCount" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
         </div>
-        {/* 他のオプションも同様に設定 */}
+        <div className="option-item">
+          <label htmlFor="baseScore">基礎スコア</label>
+          <input id="baseScore" name="baseScore" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+        </div>
+        <div className="option-item">
+          <label htmlFor="maxTime">タイム</label>
+          <input id="maxTime" name="maxTime" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+        </div>
+        <div className="option-item">
+          <label htmlFor="incorrectCost">不正解ペナルティ</label>
+          <input id="incorrectCost" name="incorrectCost" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+        </div>
+        <div className="option-item">
+          <label htmlFor="hintCost">ヒントコスト</label>
+          <input id="hintCost" name="hintCost" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+        </div>
+        <div className="option-item">
+          <label htmlFor="unmaskHintCost">アンマスクコスト</label>
+          <input id="unmaskHintCost" name="unmaskHintCost" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+        </div>
+        <div className="option-item">
+          <label htmlFor="rerollCostBase">リロールコスト</label>
+          <input id="rerollCostBase" name="rerollCostBase" type="number" value={localSettings.questionCount} onChange={handleSettingChange} />
+        </div>
         <button className="menu-button" onClick={() => setLocalSettings(selectedMode.settings)}>デフォルトに戻す</button>
       </div>
       <div className="preparation-buttons">

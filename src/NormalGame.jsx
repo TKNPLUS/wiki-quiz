@@ -11,7 +11,7 @@ const HINT_CHARS = 150;
 // HINT_COST, INCORRECT_COST, REROLL_COST_BASE, NO_HINT_BONUS, NO_REROLL_BONUS, COMBO_BONUS_MULTIPLIER, UNMASK_HINT_COST は settings から参照
 
 function NormalGame() {
-  const { settings } = useGameSettings();
+  const { modeSettings, globalSettings } = useGameSettings();
     const [animationClass, setAnimationClass] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();

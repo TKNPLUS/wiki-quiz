@@ -56,18 +56,40 @@ export const gameModes = {
   }
 };
 
+// ★グローバル設定の初期値
+const defaultGlobalSettings = {
+  minPageviews: 5000,
+  excludeProperNouns: true,
+};
+
 const GameContext = createContext();
 
 export function GameProvider({ children }) {
-  const [settings, setSettings] = useState(gameModes.normal.settings);
+  const [modeSettings, setModeSettings] = useState(gameModes.normal.settings);
+  // ★グローバル設定用のStateを追加
+  const [globalSettings, setGlobalSettings] = useState(() => {
+    // 起動時にlocalStorageから設定を読み込む
+    const saved = localStorage.getItem('wikiGameGlobalSettings');
+    return saved ? JSON.parse(saved) : defaultGlobalSettings;
+  });
+
+  // ★グローバル設定が変更されたらlocalStorageに保存する
+  useEffect(() => {
+    localStorage.setItem('wikiGameGlobalSettings', JSON.stringify(globalSettings));
+  }, [globalSettings]);
 
   return (
-    <GameContext.Provider value={{ settings, setSettings, gameModes }}>
+    <GameContext.Provider value={{
+      modeSettings, setModeSettings,
+      globalSettings, setGlobalSettings,
+      gameModes, defaultGlobalSettings
+    }}>
       {children}
     </GameContext.Provider>
   );
 }
 
+// ★カスタムフックを修正
 export function useGameSettings() {
   return useContext(GameContext);
 }

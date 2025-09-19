@@ -10,6 +10,7 @@ import PracticeGame from './PracticeGame';
 import TimeAttackGame from './TimeAttackGame';
 import GameLayout from './GameLayout';
 import SurvivalGame from './SurvivalGame';
+import SettingsScreen from './SettingsScreen';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
      <Routes>
       <Route path="/" element={<TitleScreen />} />
       <Route path="/select-mode" element={<GameModeSelection />} />
+      <Route path="/settings" element={<SettingsScreen />} />
       <Route path="/prepare/:mode" element={<PreparationScreen />} />
       <Route path="/how-to-play" element={<HowToPlay />} />
       <Route path="/index" element={<Index />} />

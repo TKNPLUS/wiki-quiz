@@ -5,7 +5,7 @@ import { normalizeText, maskText } from './utils';
 import ArticleModal from './ArticleModal';
 
 function SurvivalGame() {
-  const { settings } = useGameSettings();
+  const { modeSettings, globalSettings } = useGameSettings();
   const navigate = useNavigate();
   const [animationClass, setAnimationClass] = useState(''); // ★アニメーションクラス
 
