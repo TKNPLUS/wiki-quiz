@@ -3,14 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useGameSettings } from './GameContext';
 import './App.css';
 
-
 function PreparationScreen() {
   const { mode } = useParams();
   const navigate = useNavigate();
   const { setModeSettings, gameModes } = useGameSettings();
-
+  
   const selectedMode = gameModes[mode] || { name: '不明', description: '', path: null, settings: {} };
-
+  
   const [localSettings, setLocalSettings] = useState(selectedMode.settings);
 
   useEffect(() => {

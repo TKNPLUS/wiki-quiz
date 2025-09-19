@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ArticleModal from './ArticleModal';
-import { normalizeText, maskText } from './utils'; // 後ほど作成する共通ファイルからインポート
+import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { useGameSettings } from './GameContext'; // ★追加
 
 function PracticeGame() {
-  const { modeSettings, globalSettings } = useGameSettings();
+  const { globalSettings } = useGameSettings(); // ★追加
   const [article, setArticle] = useState(null);
   const [maskedExtract, setMaskedExtract] = useState('');
   const [guess, setGuess] = useState('');
@@ -15,85 +16,34 @@ function PracticeGame() {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [visibleChars, setVisibleChars] = useState(200);
 
- // ▼▼▼ 既存の fetchRandomArticle 関数をこれに置き換える ▼▼▼
-const fetchRandomArticle = async (newScore = modeSettings.baseScore, newMaxTime = modeSettings.maxTime) => {
-  setGuess('');
-  setResultMessage('条件に合う記事を探しています...'); // メッセージを分かりやすく変更
-  setArticle(null);
-  setIsAnswered(false);
-  setCurrentQuestionScore(newScore);
-  
-  // 各モードに存在するStateのみ更新を試みる
-  if (typeof setMaxTime === 'function') setMaxTime(newMaxTime);
-  if (typeof setTimeLeft === 'function') setTimeLeft(newMaxTime);
-  if (typeof setVisibleChars === 'function') setVisibleChars(200);
+  const fetchAndSetArticle = async () => {
+    setGuess('');
+    setResultMessage('記事を探しています...');
+    setArticle(null);
+    setIsAnswered(false);
+    setVisibleChars(200);
+    setUnmaskableWords([]);
+    setRevealedWords([]);
 
-  setHintUsed(false);
-  setUnmaskableWords([]);
-  setRevealedWords([]);
-  
-  const url = "https://ja.wikipedia.org/w/api.php";
-  const commonParams = "&format=json&origin=*";
-  const MAX_ATTEMPTS = 10;
-
-  const properNounKeywords = ["人名", "俳優", "タレント", "ミュージシャン", "モデル", "声優", "アナウンサー", "スポーツ選手", "政治家", "歴史上の人物", "架空の人物", "地理", "都市", "国", "駅", "企業", "大学", "シングル", "アルバム", "テレビドラマ", "映画作品", "漫画作品", "アニメ作品", "ゲーム作品"];
-
-  for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    try {
-      const randomParams = `?action=query&list=random&rnnamespace=0&rnlimit=1${commonParams}`;
-      const randomResponse = await fetch(url + randomParams);
-      const randomData = await randomResponse.json();
-      const randomTitle = randomData.query.random[0].title;
-
-      const detailsParams = `?action=query&prop=extracts|categories|pageviews&titles=${encodeURIComponent(randomTitle)}${commonParams}`;
-      const detailsResponse = await fetch(url + detailsParams);
-      const detailsData = await detailsResponse.json();
-      const page = Object.values(detailsData.query.pages)[0];
-      
-      if (globalSettings.excludeProperNouns) {
-        const categories = page.categories?.map(cat => cat.title) || [];
-        const isProperNoun = categories.some(cat => properNounKeywords.some(key => cat.includes(key)));
-        if (isProperNoun) {
-          console.log(`フィルタ: 固有名詞記事「${page.title}」をスキップ`);
-          continue;
-        }
-      }
-
-      const pageviews = page.pageviews ? Object.values(page.pageviews).reduce((a, b) => a + b, 0) : 0;
-      if (pageviews < globalSettings.minPageviews) {
-        console.log(`フィルタ: 低閲覧数記事「${page.title}」（${pageviews} views）をスキップ`);
-        continue;
-      }
-
-      setArticle({ title: page.title, extract: page.extract });
-      const { maskedText, unmaskableWords } = maskText(page.extract, page.title);
-      setMaskedExtract(maskedText);
-      setUnmaskableWords(unmaskableWords);
-      setHistory(prevHistory => [...prevHistory, { title: page.title, extract: page.extract }]);
+    const articleData = await fetchRandomArticleFromUtils(globalSettings);
+    if (articleData) {
+      setArticle(articleData.article);
+      setMaskedExtract(articleData.maskedText);
+      setUnmaskableWords(articleData.unmaskableWords);
       setResultMessage('');
-      return;
-
-    } catch (error) {
-      console.error("APIリクエスト中にエラー:", error);
-      continue;
+    } else {
+      setResultMessage("記事の取得に失敗しました。");
     }
-  }
-
-  setResultMessage("条件に合う記事が見つかりませんでした。設定を緩めてみてください。");
-};
-// ▲▲▲ ここまで置き換え ▲▲▲
+  };
 
   useEffect(() => {
-    fetchRandomArticle();
+    fetchAndSetArticle();
   }, []);
 
   const handleGuess = () => {
     if (isAnswered || !guess || !article) return;
-    const normalizedGuess = normalizeText(guess.toLowerCase());
-    const normalizedTitle = normalizeText(article.title.toLowerCase());
-    const mainTitle = article.title.split('(')[0].trim();
-    const normalizedMainTitle = normalizeText(mainTitle.toLowerCase());
-    if (normalizedGuess === normalizedTitle || normalizedGuess === normalizedMainTitle) {
+    const isCorrect = normalizeText(guess.toLowerCase()) === normalizeText(article.title.toLowerCase()) || normalizeText(guess.toLowerCase()) === normalizeText(article.title.split('(')[0].trim().toLowerCase());
+    if (isCorrect) {
       setResultMessage(`正解！答えは「${article.title}」でした！`);
       showAnswer();
     } else {
@@ -110,10 +60,9 @@ const fetchRandomArticle = async (newScore = modeSettings.baseScore, newMaxTime 
   };
 
   const handleRevealHint = () => {
-  if (isAnswered) return;
-  // 表示文字数を150文字増やす
-  setVisibleChars(prev => prev + 150);
-};
+    if (isAnswered || visibleChars >= maskedExtract.length) return;
+    setVisibleChars(prev => prev + 150);
+  };
 
   const showAnswer = () => {
     if (!article) return;
@@ -145,13 +94,8 @@ const fetchRandomArticle = async (newScore = modeSettings.baseScore, newMaxTime 
           )}
           <div className="practice-buttons">
             <button onClick={handleUnmaskHint} disabled={isAnswered || unmaskableWords.length === 0}>伏せ字削減</button>
-            <button 
-              onClick={handleRevealHint} 
-              disabled={isAnswered || visibleChars >= maskedExtract.length}
-            >
-              ヒント
-            </button>
-            <button onClick={fetchRandomArticle} disabled={isAnswered}>リロール</button>
+            <button onClick={handleRevealHint} disabled={isAnswered || visibleChars >= maskedExtract.length}>ヒント</button>
+            <button onClick={fetchAndSetArticle} disabled={isAnswered}>リロール</button>
             <button onClick={showAnswer} disabled={isAnswered}>答えを見る</button>
           </div>
           <div className="guess-area">
@@ -161,7 +105,7 @@ const fetchRandomArticle = async (newScore = modeSettings.baseScore, newMaxTime 
           <p className="result-message">{resultMessage}</p>
           {isAnswered && (
             <div className="practice-after-answer">
-              <button className="next-button" onClick={fetchRandomArticle}>次の問題へ</button>
+              <button className="next-button" onClick={fetchAndSetArticle}>次の問題へ</button>
               <button className="menu-button" onClick={() => setSelectedArticle(article)}>記事詳細</button>
             </div>
           )}
