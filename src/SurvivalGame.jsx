@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameSettings } from './GameContext';
 import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { calculateDifficulty } from './calculateDifficulty';
 import ArticleModal from './ArticleModal';
 
 function SurvivalGame() {
@@ -33,6 +34,8 @@ function SurvivalGame() {
   // History and Modal
   const [history, setHistory] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
+  // ▼▼▼ この一行を追加 ▼▼▼
+  const [difficulty, setDifficulty] = useState(0);
 
   // --- Main Timer ---
   useEffect(() => {
@@ -72,9 +75,8 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
     setMaskedExtract(articleData.maskedText);
     setUnmaskableWords(articleData.unmaskableWords);
     setHistory(prevHistory => [...prevHistory, articleData.article]);
+    setDifficulty(calculateDifficulty(articleData.article.pageviews)); // ★難易度を計算
     setResultMessage('');
-  } else {
-    // ▼▼▼ ここから追加 ▼▼▼
     // 取得した記事情報をコンソールに出力
     console.log(
       `--- 新しい問題 ---\n` +
@@ -82,7 +84,7 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
       `閲覧数: ${articleData.article.pageviews ?? '不明'}\n` +
       `カテゴリ: ${(articleData.article.categories ? articleData.article.categories.join(', ') : '不明')}`
     );
-    // ▲▲▲ ここまで追加 ▲▲▲
+  } else {
     setResultMessage("記事の取得に失敗しました。リロードしてみてください。");
   }
 };
@@ -204,6 +206,7 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
       <div className="game-info">
         <span>ライフ: {Math.max(0, currentQuestionScore)}</span>
         <span className="timer">残り時間: {timeLeft}秒</span>
+        <span>難易度: {difficulty.toFixed(1)}</span>
         <span>正解数: {questionsCleared}</span>
       </div>
       <h1>サバイバルモード</h1>

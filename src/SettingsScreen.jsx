@@ -8,31 +8,26 @@ function SettingsScreen() {
   const { globalSettings, setGlobalSettings, defaultGlobalSettings } = useGameSettings();
 
   const handleSettingChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setGlobalSettings(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : Number(value)
-    }));
+    const { name, value } = e.target;
+    setGlobalSettings(prev => ({ ...prev, [name]: Number(value) }));
   };
 
   return (
     <div className="page-container">
       <h1>共通設定</h1>
       <p className="mode-description">ここでの設定は、すべてのゲームモードに適用されます。</p>
-
       <div className="options-container">
-        <h2>記事フィルター</h2>
+        <h2>記事の取得設定</h2>
         <div className="option-item">
-          <label htmlFor="minPageviews">最低閲覧数</label>
-          <input id="minPageviews" name="minPageviews" type="number" step="100" value={globalSettings.minPageviews} onChange={handleSettingChange} />
+          <label htmlFor="fetchBatchSize">一度に調べる記事数</label>
+          <input id="fetchBatchSize" name="fetchBatchSize" type="number" step="5" value={globalSettings.fetchBatchSize} onChange={handleSettingChange} />
         </div>
-        <div className="option-item checkbox-item">
-          <label htmlFor="excludeProperNouns">固有名詞を除外</label>
-          <input id="excludeProperNouns" name="excludeProperNouns" type="checkbox" checked={globalSettings.excludeProperNouns} onChange={handleSettingChange} />
+        <div className="option-item">
+          <label htmlFor="fetchAttempts">最大試行回数</label>
+          <input id="fetchAttempts" name="fetchAttempts" type="number" step="1" value={globalSettings.fetchAttempts} onChange={handleSettingChange} />
         </div>
         <button className="menu-button" onClick={() => setGlobalSettings(defaultGlobalSettings)}>デフォルトに戻す</button>
       </div>
-      
       <button onClick={() => navigate(-1)} className="menu-button back-button">戻る</button>
     </div>
   );

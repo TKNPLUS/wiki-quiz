@@ -4,6 +4,7 @@ import ArticleModal from './ArticleModal';
 import './App.css';
 import { useGameSettings } from './GameContext.jsx';
 import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { calculateDifficulty } from './calculateDifficulty';
 // 定数（ゲームバランスの調整用）
 const INITIAL_CHARS = 200;
 const HINT_CHARS = 150;
@@ -34,6 +35,8 @@ function NormalGame() {
   const [revealedWords, setRevealedWords] = useState([]);
   const [history, setHistory] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
+  // ▼▼▼ この一行を追加 ▼▼▼
+  const [difficulty, setDifficulty] = useState(0);
 
   useEffect(() => {
   // ゲームが終了した瞬間に履歴をlocalStorageに保存
@@ -88,9 +91,8 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
     setMaskedExtract(articleData.maskedText);
     setUnmaskableWords(articleData.unmaskableWords);
     setHistory(prevHistory => [...prevHistory, articleData.article]);
+    setDifficulty(calculateDifficulty(articleData.article.pageviews)); // ★難易度を計算
     setResultMessage('');
-
-    // ▼▼▼ ここから追加 ▼▼▼
     // 取得した記事情報をコンソールに出力
     console.log(
       `--- 新しい問題 ---\n` +
@@ -98,7 +100,6 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
       `閲覧数: ${articleData.article.pageviews ?? '不明'}\n` +
       `カテゴリ: ${(articleData.article.categories ? articleData.article.categories.join(', ') : '不明')}`
     );
-    // ▲▲▲ ここまで追加 ▲▲▲
   } else {
     setResultMessage("記事の取得に失敗しました。リロードしてみてください。");
   }
@@ -273,6 +274,9 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
                 : `次のペナルティまで: ${30 - (Math.abs(timeLeft) % 30)}秒`
               }
             </span>
+            {/* ▼▼▼ 難易度表示を追加 ▼▼▼ */}
+            <span>難易度: {difficulty.toFixed(1)}</span>
+            {/* ▲▲▲ 難易度表示を追加 ▲▲▲ */}
             <span>第 {questionNumber} / {modeSettings.questionCount} 問</span>
           </div>
           <h1>Wikipedia記事当てクイズ</h1>

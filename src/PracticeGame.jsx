@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ArticleModal from './ArticleModal';
 import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { calculateDifficulty } from './calculateDifficulty';
 import { useGameSettings } from './GameContext'; // ★追加
 
 function PracticeGame() {
@@ -15,6 +16,8 @@ function PracticeGame() {
   const [revealedWords, setRevealedWords] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [visibleChars, setVisibleChars] = useState(200);
+  // ▼▼▼ この一行を追加 ▼▼▼
+  const [difficulty, setDifficulty] = useState(0);
 
   const fetchAndSetArticle = async () => {
     setGuess('');
@@ -30,9 +33,8 @@ function PracticeGame() {
       setArticle(articleData.article);
       setMaskedExtract(articleData.maskedText);
       setUnmaskableWords(articleData.unmaskableWords);
+      setDifficulty(calculateDifficulty(articleData.article.pageviews)); // ★難易度を計算
       setResultMessage('');
-
-      // ▼▼▼ ここから追加 ▼▼▼
       // 取得した記事情報をコンソールに出力
       console.log(
         `--- 新しい問題 ---\n` +
@@ -40,7 +42,6 @@ function PracticeGame() {
         `閲覧数: ${articleData.article.pageviews ?? '不明'}\n` +
         `カテゴリ: ${(articleData.article.categories ? articleData.article.categories.join(', ') : '不明')}`
       );
-      // ▲▲▲ ここまで追加 ▲▲▲
     } else {
       setResultMessage("記事の取得に失敗しました。");
     }
@@ -88,6 +89,7 @@ function PracticeGame() {
       <div className="game-info">
         <Link to="/select-mode" className="back-link">モード選択へ戻る</Link>
         <span>練習モード</span>
+        <span>難易度: {difficulty.toFixed(1)}</span>
       </div>
       <h1>Wikipedia記事当てクイズ</h1>
       {!article ? (<p>読み込み中...</p>) : (

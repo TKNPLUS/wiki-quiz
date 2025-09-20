@@ -1,4 +1,5 @@
-// 文字列を正規化する関数（全角→半角、スペース削除）
+// ▼▼▼ 既存の utils.js の中身を、これに全て置き換えてください ▼▼▼
+
 export const normalizeText = (text) => {
   if (!text) return '';
   return text
@@ -6,13 +7,12 @@ export const normalizeText = (text) => {
     .replace(/[\s　]/g, "");
 };
 
-// テキスト内の特定の単語を、その文字数分の「●」に置き換える関数
 export const maskText = (text, title) => {
   let masked = text;
   const unmaskable = [];
   const replacer = (match) => '●'.repeat(match.length);
   const captureReplacer = (match, content) => {
-    if (content.toLowerCase() !== title.toLowerCase()) {
+    if (content && title && content.toLowerCase() !== title.toLowerCase()) {
       unmaskable.push(content);
     }
     return `<b>${'●'.repeat(content.length)}</b>`;
@@ -35,65 +35,47 @@ export const maskText = (text, title) => {
 export const fetchRandomArticle = async (settings) => {
   const url = "https://ja.wikipedia.org/w/api.php";
   const commonParams = "&format=json&origin=*";
-  const properNounKeywords = ["人名", "俳優", "タレント", "ミュージシャン", "モデル", "声優", "アナウンサー", "スポーツ選手", "政治家", "歴史上の人物", "架空の人物", "地理", "都市", "国", "駅", "企業", "大学", "シングル", "アルバム", "テレビドラマ", "映画作品", "漫画作品", "アニメ作品", "ゲーム作品"];
+  
+  let bestArticle = null;
+  let maxViews = -1;
 
-  try {
-    const params = `?action=query&generator=random&grnnamespace=0&grnlimit=20&prop=extracts|categories|pageviews${commonParams}`;
-    const response = await fetch(url + params);
-    const data = await response.json();
+  for (let i = 0; i < settings.fetchAttempts; i++) {
+    try {
+      const randomListParams = `?action=query&list=random&rnnamespace=0&rnlimit=${settings.fetchBatchSize}${commonParams}`;
+      const randomResponse = await fetch(url + randomListParams);
+      const randomData = await randomResponse.json();
+      const titles = randomData.query.random.map(p => p.title).join('|');
+      
+      const detailsParams = `?action=query&prop=extracts|pageviews&titles=${encodeURIComponent(titles)}${commonParams}`;
+      const detailsResponse = await fetch(url + detailsParams);
+      const detailsData = await detailsResponse.json();
 
-    if (!data.query || !data.query.pages) {
-      throw new Error("APIから有効なデータが返されませんでした。");
-    }
+      if (!detailsData.query || !detailsData.query.pages) continue;
 
-    const pages = Object.values(data.query.pages);
-    let foundArticle = null;
-
-    for (const page of pages) {
-      if (!page.extract) continue;
-
-      if (settings.excludeProperNouns) {
-        const categories = page.categories?.map(cat => cat.title) || [];
-        const isProperNoun = categories.some(cat => properNounKeywords.some(key => cat.includes(key)));
-        if (isProperNoun) continue;
+      const pages = Object.values(detailsData.query.pages);
+      for (const page of pages) {
+        if (!page.extract) continue;
+        const pageviews = page.pageviews ? Object.values(page.pageviews).reduce((a, b) => a + b, 0) : 0;
+        if (pageviews > maxViews) {
+          maxViews = pageviews;
+          bestArticle = page;
+        }
       }
-
-      const pageviews = page.pageviews ? Object.values(page.pageviews).reduce((a, b) => a + b, 0) : 0;
-      if (pageviews < settings.minPageviews) continue;
-      
-      foundArticle = page;
-      break;
+    } catch (error) {
+      console.error(`APIリクエスト中にエラー (試行 ${i + 1}回目):`, error);
     }
-
-    if (!foundArticle && pages.length > 0) {
-      foundArticle = pages.find(p => p.extract) || pages[0];
-    }
-    
-    if (foundArticle && foundArticle.extract) {
-      const { maskedText, unmaskableWords } = maskText(foundArticle.extract, foundArticle.title);
-      
-      // ▼▼▼ ここから追加 ▼▼▼
-      // カテゴリと閲覧数も戻り値に含める
-      const categories = foundArticle.categories?.map(c => c.title.replace('Category:', '')) || ['カテゴリ情報なし'];
-      const pageviews = foundArticle.pageviews ? Object.values(foundArticle.pageviews).reduce((a, b) => a + b, 0) : 0;
-      // ▲▲▲ ここまで追加 ▲▲▲
-      
-      return {
-        article: { 
-          title: foundArticle.title, 
-          extract: foundArticle.extract,
-          categories: categories, // ★追加
-          pageviews: pageviews,   // ★追加
-        },
-        maskedText,
-        unmaskableWords
-      };
-    } else {
-      throw new Error("表示できる記事が見つかりませんでした。");
-    }
-
-  } catch (error) {
-    console.error("APIリクエスト中にエラー:", error);
-    return null;
   }
+
+  if (bestArticle) {
+    const { maskedText, unmaskableWords } = maskText(bestArticle.extract, bestArticle.title);
+    const pageviews = bestArticle.pageviews ? Object.values(bestArticle.pageviews).reduce((a, b) => a + b, 0) : 0;
+    return {
+      article: { title: bestArticle.title, extract: bestArticle.extract, pageviews },
+      maskedText,
+      unmaskableWords
+    };
+  }
+  
+  console.error("表示できる記事が見つかりませんでした。");
+  return null;
 };

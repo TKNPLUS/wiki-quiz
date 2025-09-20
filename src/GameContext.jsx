@@ -38,8 +38,8 @@ export const gameModes = {
 };
 
 const defaultGlobalSettings = {
-  minPageviews: 5000,
-  excludeProperNouns: true,
+  fetchBatchSize: 20, // 一度に取得する記事の数
+  fetchAttempts: 3,   // バッチ取得を試行する回数
 };
 
 const GameContext = createContext();
