@@ -50,9 +50,7 @@ export const fetchRandomArticle = async (settings) => {
     let foundArticle = null;
 
     for (const page of pages) {
-      // ▼▼▼ この一行を追加 ▼▼▼
-      if (!page.extract) continue; // 本文(extract)が存在しない記事はスキップ
-      // ▲▲▲ この一行を追加 ▲▲▲
+      if (!page.extract) continue;
 
       if (settings.excludeProperNouns) {
         const categories = page.categories?.map(cat => cat.title) || [];
@@ -68,14 +66,25 @@ export const fetchRandomArticle = async (settings) => {
     }
 
     if (!foundArticle && pages.length > 0) {
-      // フィルターを通過するものがなくても、本文がある最初の記事をフォールバックとして採用
       foundArticle = pages.find(p => p.extract) || pages[0];
     }
     
     if (foundArticle && foundArticle.extract) {
       const { maskedText, unmaskableWords } = maskText(foundArticle.extract, foundArticle.title);
+      
+      // ▼▼▼ ここから追加 ▼▼▼
+      // カテゴリと閲覧数も戻り値に含める
+      const categories = foundArticle.categories?.map(c => c.title.replace('Category:', '')) || ['カテゴリ情報なし'];
+      const pageviews = foundArticle.pageviews ? Object.values(foundArticle.pageviews).reduce((a, b) => a + b, 0) : 0;
+      // ▲▲▲ ここまで追加 ▲▲▲
+      
       return {
-        article: { title: foundArticle.title, extract: foundArticle.extract },
+        article: { 
+          title: foundArticle.title, 
+          extract: foundArticle.extract,
+          categories: categories, // ★追加
+          pageviews: pageviews,   // ★追加
+        },
         maskedText,
         unmaskableWords
       };

@@ -74,6 +74,15 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
     setHistory(prevHistory => [...prevHistory, articleData.article]);
     setResultMessage('');
   } else {
+    // ▼▼▼ ここから追加 ▼▼▼
+    // 取得した記事情報をコンソールに出力
+    console.log(
+      `--- 新しい問題 ---\n` +
+      `タイトル: ${articleData.article.title}\n` +
+      `閲覧数: ${articleData.article.pageviews ?? '不明'}\n` +
+      `カテゴリ: ${(articleData.article.categories ? articleData.article.categories.join(', ') : '不明')}`
+    );
+    // ▲▲▲ ここまで追加 ▲▲▲
     setResultMessage("記事の取得に失敗しました。リロードしてみてください。");
   }
 };
