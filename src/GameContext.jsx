@@ -48,7 +48,8 @@ export function GameProvider({ children }) {
   const [modeSettings, setModeSettings] = useState(gameModes.normal.settings);
   const [globalSettings, setGlobalSettings] = useState(() => {
     const saved = localStorage.getItem('wikiGameGlobalSettings');
-    return saved ? JSON.parse(saved) : defaultGlobalSettings;
+    const initialSettings = saved ? JSON.parse(saved) : {};
+    return { ...defaultGlobalSettings, ...initialSettings };
   });
 
   useEffect(() => {
