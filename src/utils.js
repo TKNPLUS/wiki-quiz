@@ -70,7 +70,14 @@ export const fetchRandomArticle = async (settings) => {
   if (bestArticle) {
     const { maskedText, unmaskableWords } = maskText(bestArticle.extract, bestArticle.title);
     const pageviews = bestArticle.pageviews ? Object.values(bestArticle.pageviews).reduce((a, b) => a + b, 0) : 0;
-    const thumbnail = bestArticle.thumbnail ? bestArticle.thumbnail.source : null;
+    // Validate thumbnail URL is from Wikipedia domain
+    let thumbnail = null;
+    if (bestArticle.thumbnail && bestArticle.thumbnail.source) {
+      const thumbnailUrl = bestArticle.thumbnail.source;
+      if (thumbnailUrl.startsWith('https://upload.wikimedia.org/')) {
+        thumbnail = thumbnailUrl;
+      }
+    }
     return {
       article: { title: bestArticle.title, extract: bestArticle.extract, pageviews, thumbnail },
       maskedText,
