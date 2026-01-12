@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ArticleModal from './ArticleModal';
 import './App.css';
 import { useGameSettings } from './GameContext.jsx';
-import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { normalizeText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
 import { calculateDifficulty } from './calculateDifficulty';
 // 定数（ゲームバランスの調整用）
 const INITIAL_CHARS = 200;
@@ -283,10 +283,22 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
           {!article ? (<p>読み込み中...</p>) : (
             <div className={`game-container ${animationClass}`}>
               <h2>問題 (この問題の得点: {currentQuestionScore}点)</h2>
-              <p className="article-text">
-                {maskedExtract.substring(0, visibleChars)}
-                {visibleChars < maskedExtract.length && !isAnswered && '...'}
-              </p>
+              {modeSettings.isReverse ? (
+                // 逆問題モード: サムネイルを表示
+                <div className="reverse-mode">
+                  {article.thumbnail ? (
+                    <img src={article.thumbnail} alt="記事のサムネイル" className="article-thumbnail" />
+                  ) : (
+                    <p className="no-thumbnail">この記事にはサムネイルがありません</p>
+                  )}
+                </div>
+              ) : (
+                // 通常モード: テキストを表示
+                <p className="article-text">
+                  {maskedExtract.substring(0, visibleChars)}
+                  {visibleChars < maskedExtract.length && !isAnswered && '...'}
+                </p>
+              )}
               {revealedWords.length > 0 && (
                 <div className="revealed-words-area">
                   <strong>ヒント単語:</strong>
@@ -331,9 +343,17 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
               </div>
               <p className="result-message">{resultMessage}</p>
               {isAnswered && (
-                <button className="next-button" onClick={handleNextQuestion}>
-                  {questionNumber >= 5 ? '結果を見る' : '次の問題へ'}
-                </button>
+                <>
+                  {article.thumbnail && (
+                    <div className="answer-thumbnail">
+                      <img src={article.thumbnail} alt={article.title} />
+                      <p className="thumbnail-caption">正解: {article.title}</p>
+                    </div>
+                  )}
+                  <button className="next-button" onClick={handleNextQuestion}>
+                    {questionNumber >= 5 ? '結果を見る' : '次の問題へ'}
+                  </button>
+                </>
               )}
             </div>
           )}

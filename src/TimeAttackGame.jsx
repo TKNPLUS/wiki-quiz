@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameSettings } from './GameContext';
-import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { normalizeText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
 import { calculateDifficulty } from './calculateDifficulty';
 import ArticleModal from './ArticleModal';
 
@@ -215,7 +215,19 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
       <h1>タイムアタックモード</h1>
       {!article ? (<p>読み込み中...</p>) : (
         <div className={`game-container ${animationClass}`}>
-          <p className="article-text">{maskedExtract}</p>
+          {modeSettings.isReverse ? (
+            // 逆問題モード: サムネイルを表示
+            <div className="reverse-mode">
+              {article.thumbnail ? (
+                <img src={article.thumbnail} alt="記事のサムネイル" className="article-thumbnail" />
+              ) : (
+                <p className="no-thumbnail">この記事にはサムネイルがありません</p>
+              )}
+            </div>
+          ) : (
+            // 通常モード: テキストを表示
+            <p className="article-text">{maskedExtract}</p>
+          )}
           {revealedWords.length > 0 && (
             <div className="revealed-words-area">
               <strong>ヒント単語:</strong>
@@ -235,6 +247,12 @@ const fetchAndSetArticle = async (newScore = modeSettings.baseScore, newMaxTime 
             <button onClick={handleGuess} disabled={isAnswered || isFrozen}>回答</button>
           </div>
           <p className="result-message">{resultMessage}</p>
+          {isAnswered && article.thumbnail && (
+            <div className="answer-thumbnail">
+              <img src={article.thumbnail} alt={article.title} />
+              <p className="thumbnail-caption">正解: {article.title}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

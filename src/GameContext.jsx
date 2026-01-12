@@ -7,7 +7,7 @@ export const gameModes = {
     description: '総合スコアを競う、基本的なモードです。',
     path: '/game/normal',
     settings: {
-      questionCount: 5, baseScore: 100, maxTime: 60, incorrectCost: 20, hintCost: 5, unmaskHintCost: 10, rerollCostBase: 10, noHintBonus: 20, noRerollBonus: 10, comboBonusMultiplier: 5,
+      questionCount: 5, baseScore: 100, maxTime: 60, incorrectCost: 20, hintCost: 5, unmaskHintCost: 10, rerollCostBase: 10, noHintBonus: 20, noRerollBonus: 10, comboBonusMultiplier: 5, isReverse: false,
     }
   },
   timeattack: {
@@ -15,7 +15,7 @@ export const gameModes = {
     description: '問題をどれだけ早くクリアできるかを競うモードです。',
     path: '/game/timeattack',
     settings: {
-      questionCount: 5, baseScore: 100, maxTime: 999, incorrectCost: 20, hintCost: 5, unmaskHintCost: 10, rerollCostBase: 10,
+      questionCount: 5, baseScore: 100, maxTime: 999, incorrectCost: 20, hintCost: 5, unmaskHintCost: 10, rerollCostBase: 10, isReverse: false,
     }
   },
   survival: {
@@ -23,7 +23,7 @@ export const gameModes = {
     description: '持ち時間60秒からスタートし、どれだけ長く生き延びられるかを競うモードです。',
     path: '/game/survival',
     settings: {
-      questionCount: 999, baseScore: 50, maxTime: 60, timeCap: 80, incorrectCost: 20, hintCost: 5, unmaskHintCost: 10, rerollCostBase: 10, noHintBonus: 10, noRerollBonus: 5,
+      questionCount: 999, baseScore: 50, maxTime: 60, timeCap: 80, incorrectCost: 20, hintCost: 5, unmaskHintCost: 10, rerollCostBase: 10, noHintBonus: 10, noRerollBonus: 5, isReverse: false,
     }
   },
   practice: {
@@ -32,7 +32,7 @@ export const gameModes = {
     path: '/game/practice',
     // ★修正点：練習モード用のダミー設定を正しく定義
     settings: {
-      questionCount: 999, baseScore: 0, maxTime: 999, incorrectCost: 0, hintCost: 0, unmaskHintCost: 0, rerollCostBase: 0,
+      questionCount: 999, baseScore: 0, maxTime: 999, incorrectCost: 0, hintCost: 0, unmaskHintCost: 0, rerollCostBase: 0, isReverse: false,
     }
   }
 };
