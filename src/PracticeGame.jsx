@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ArticleModal from './ArticleModal';
-import { normalizeText, maskText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
+import { normalizeText, fetchRandomArticle as fetchRandomArticleFromUtils } from './utils';
 import { calculateDifficulty } from './calculateDifficulty';
 import { useGameSettings } from './GameContext'; // ★追加
 
 function PracticeGame() {
-  const { globalSettings } = useGameSettings(); // ★追加
+  const { globalSettings, modeSettings } = useGameSettings(); // ★修正: modeSettingsを追加
   const [article, setArticle] = useState(null);
   const [maskedExtract, setMaskedExtract] = useState('');
   const [guess, setGuess] = useState('');
@@ -94,10 +94,22 @@ function PracticeGame() {
       <h1>Wikipedia記事当てクイズ</h1>
       {!article ? (<p>読み込み中...</p>) : (
         <div className="game-container">
-          <p className="article-text">
-            {maskedExtract.substring(0, visibleChars)}
-            {visibleChars < maskedExtract.length && !isAnswered && '...'}
-          </p>
+          {modeSettings.isReverse ? (
+            // 逆問題モード: サムネイルを表示
+            <div className="reverse-mode">
+              {article.thumbnail ? (
+                <img src={article.thumbnail} alt="記事のサムネイル" className="article-thumbnail" />
+              ) : (
+                <p className="no-thumbnail">この記事にはサムネイルがありません</p>
+              )}
+            </div>
+          ) : (
+            // 通常モード: テキストを表示
+            <p className="article-text">
+              {maskedExtract.substring(0, visibleChars)}
+              {visibleChars < maskedExtract.length && !isAnswered && '...'}
+            </p>
+          )}
           {revealedWords.length > 0 && (
             <div className="revealed-words-area">
               <strong>ヒント単語:</strong>
@@ -116,10 +128,18 @@ function PracticeGame() {
           </div>
           <p className="result-message">{resultMessage}</p>
           {isAnswered && (
-            <div className="practice-after-answer">
-              <button className="next-button" onClick={fetchAndSetArticle}>次の問題へ</button>
-              <button className="menu-button" onClick={() => setSelectedArticle(article)}>記事詳細</button>
-            </div>
+            <>
+              {article.thumbnail && (
+                <div className="answer-thumbnail">
+                  <img src={article.thumbnail} alt={article.title} />
+                  <p className="thumbnail-caption">正解: {article.title}</p>
+                </div>
+              )}
+              <div className="practice-after-answer">
+                <button className="next-button" onClick={fetchAndSetArticle}>次の問題へ</button>
+                <button className="menu-button" onClick={() => setSelectedArticle(article)}>記事詳細</button>
+              </div>
+            </>
           )}
         </div>
       )}

@@ -17,8 +17,8 @@ function PreparationScreen() {
   }, [mode, gameModes]);
 
   const handleSettingChange = (e) => {
-    const { name, value } = e.target;
-    setLocalSettings(prev => ({ ...prev, [name]: Number(value) }));
+    const { name, value, type, checked } = e.target;
+    setLocalSettings(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : Number(value) }));
   };
   
   const handleGameStart = () => {
@@ -60,6 +60,12 @@ function PreparationScreen() {
         <div className="option-item">
           <label htmlFor="rerollCostBase">リロールコスト</label>
           <input id="rerollCostBase" name="rerollCostBase" type="number" value={localSettings.rerollCostBase} onChange={handleSettingChange} />
+        </div>
+        <div className="option-item">
+          <label htmlFor="isReverse">
+            <input id="isReverse" name="isReverse" type="checkbox" checked={localSettings.isReverse || false} onChange={handleSettingChange} />
+            逆問題モード（サムネイルから記事名を当てる）
+          </label>
         </div>
         {/* ▲▲▲ ここまでが修正箇所です ▲▲▲ */}
         <button className="menu-button" onClick={() => setLocalSettings(selectedMode.settings)}>デフォルトに戻す</button>

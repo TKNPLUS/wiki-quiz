@@ -4,6 +4,7 @@ export const normalizeText = (text) => {
   if (!text) return '';
   return text
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    // eslint-disable-next-line no-irregular-whitespace
     .replace(/[\s　]/g, "");
 };
 
@@ -46,7 +47,7 @@ export const fetchRandomArticle = async (settings) => {
       const randomData = await randomResponse.json();
       const titles = randomData.query.random.map(p => p.title).join('|');
       
-      const detailsParams = `?action=query&prop=extracts|pageviews&titles=${encodeURIComponent(titles)}${commonParams}`;
+      const detailsParams = `?action=query&prop=extracts|pageviews|pageimages&pithumbsize=300&titles=${encodeURIComponent(titles)}${commonParams}`;
       const detailsResponse = await fetch(url + detailsParams);
       const detailsData = await detailsResponse.json();
 
@@ -69,8 +70,16 @@ export const fetchRandomArticle = async (settings) => {
   if (bestArticle) {
     const { maskedText, unmaskableWords } = maskText(bestArticle.extract, bestArticle.title);
     const pageviews = bestArticle.pageviews ? Object.values(bestArticle.pageviews).reduce((a, b) => a + b, 0) : 0;
+    // Validate thumbnail URL is from Wikipedia domain
+    let thumbnail = null;
+    if (bestArticle.thumbnail && bestArticle.thumbnail.source) {
+      const thumbnailUrl = bestArticle.thumbnail.source;
+      if (thumbnailUrl.startsWith('https://upload.wikimedia.org/')) {
+        thumbnail = thumbnailUrl;
+      }
+    }
     return {
-      article: { title: bestArticle.title, extract: bestArticle.extract, pageviews },
+      article: { title: bestArticle.title, extract: bestArticle.extract, pageviews, thumbnail },
       maskedText,
       unmaskableWords
     };
